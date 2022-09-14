@@ -1,0 +1,40 @@
+pipeline {
+    agent any
+
+    stages {
+        stage("Check out") {
+            steps {
+                checkout([$class: 'GitSCM', branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/bLakshmankumar/java_springboot-app.git']]])
+                
+            }
+        }
+        
+        stage ("Build JAR") {
+            steps {
+                sh "mvn clean package"
+            }
+        }
+        
+        stage ( "Docker build") {
+            steps {
+                sh "docker build -t javaeks:68 ."
+                sh "docker images"
+                sh "docker tag javaeks:68 vishnu86100/javaeksdocker:2jed"
+            }
+        }
+        stage ("Docker push") {
+            steps {
+                withCredentials([string(credentialsId: 'Dockerpwd', variable: 'Docker_passwd')]) {
+                sh "docker login -u vishnu86100 -p ${Docker_passwd}"}    
+                sh "docker push vishnu86100/javaeksdocker:2jed"
+            }
+        }
+        stage ("k8s deploy") {
+            steps {
+                withKubeConfig(caCertificate: '', clusterName: '', contextName: '', credentialsId: 'k8spasswd', namespace: '', serverUrl: '') {
+                sh "kubectl apply -f eks-deploy-k8s.yaml"}
+                
+           }   
+        }
+    }
+}
